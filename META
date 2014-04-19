@@ -1,0 +1,12 @@
+# OASIS_START
+# DO NOT EDIT (digest: 44d04528a54faa2b574c359e332b877e)
+version = "0.1.0"
+description = "Simple one-to-one TCP chat client"
+requires = "lwt lwt.unix lwt.syntax"
+archive(byte) = "socket.cma"
+archive(byte, plugin) = "socket.cma"
+archive(native) = "socket.cmxa"
+archive(native, plugin) = "socket.cmxs"
+exists_if = "socket.cma"
+# OASIS_STOP
+

@@ -1,0 +1,15 @@
+OASISFormat: 0.3
+Name:        chat-client
+Version:     0.1.0
+Synopsis:    Simple one-to-one TCP chat client
+Authors:     Ivan Gotovchits <ivg@ieee.org>
+License:     MIT
+Plugins:     META (0.3), StdFiles (0.3), DevFiles (0.3)
+
+Library socket
+  Path: .
+  BuildTools: ocamlbuild
+  BuildDepends: lwt, lwt.unix, lwt.syntax
+  Modules: Socket
+
+

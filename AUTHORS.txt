@@ -1,0 +1,5 @@
+(* OASIS_START *)
+(* DO NOT EDIT (digest: a0041b48dd2e04fca6125164d296cadf) *)
+Authors of chat-client
+Ivan Gotovchits <ivg@ieee.org>
+(* OASIS_STOP *)

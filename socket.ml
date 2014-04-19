@@ -143,10 +143,11 @@ module Connection = struct
   }
 
   let create socket =
-    let ochan_closed, notify_ochan_closed = wait () in
-    let ichan_closed, notify_ichan_closed = wait () in
-    let on_closed, connection_closed = wait () in
-    let close_socket = lazy (try_lwt
+    let ochan_closed, notify_ochan_closed = task () in
+    let ichan_closed, notify_ichan_closed = task () in
+    let on_closed, connection_closed = task () in
+    let close_socket = lazy (
+      try_lwt
         Lwt_unix.close socket
       with exn -> error ~exn ~section "failed to close socket") in
     async (fun () ->
@@ -167,8 +168,8 @@ module Connection = struct
     let shutdown_ochan =
       shutdown notify_ochan_closed Unix.SHUTDOWN_SEND in
     let close = lazy
-      (Lazy.force shutdown_ichan >>
-       Lazy.force shutdown_ochan >>
+      (Lazy.force shutdown_ochan >>
+       Lazy.force shutdown_ichan >>
        return (wakeup connection_closed ())) in
     {
       socket; close; on_closed;
@@ -181,7 +182,14 @@ module Connection = struct
   let output_channel t = Lazy.force t.ochan
   let to_fd t = t.socket
   let close t =
-    Lwt_mutex.with_lock t.close_mx (fun () -> Lazy.force t.close)
+    let close_if_forced chan =
+      if Lazy.is_val chan
+      then Lwt_io.close (Lazy.force chan)
+      else return_unit in
+    Lwt_mutex.with_lock t.close_mx (fun () ->
+        close_if_forced t.ochan >>
+        close_if_forced t.ichan >>
+        Lazy.force t.close)
 
   let on_close t = t.on_closed
 
@@ -337,14 +345,14 @@ let free_addr addr =
   with exn -> error ~exn "unlink failed"
 
 
-let listen s f =
+let listen ?(max_queue=5) s f =
   let sock = Lwt_unix.(
       socket s.ai_family s.ai_socktype s.ai_protocol) in
   let is_udp = Unix.(s.ai_socktype = SOCK_DGRAM) in
   Lwt_unix.setsockopt sock Unix.SO_REUSEADDR true;
   Lwt_unix.(bind sock s.ai_addr) ;
   if not  is_udp then
-    Lwt_unix.listen sock 5;
+    Lwt_unix.listen sock max_queue;
   let free_addr = lazy (free_addr s.Unix.ai_addr) in
   let exit_hook =
     Lwt_sequence.add_r
@@ -455,7 +463,7 @@ module IO = struct
   include NativeIO
 
 
-  let stream_of_io t =
+  let stream_of_io ?(on_error=fun _ -> return_unit) t =
     let of_user,to_client = Lwt_stream.create () in
     let of_client,to_user = Lwt_stream.create () in
     let reader_t () =
@@ -463,11 +471,18 @@ module IO = struct
         lwt v = t.get () in
         to_user (Some v);
         loop () in
-      try_lwt loop () with End_of_file -> return (to_user None) in
-    let write_t () =
-      Lwt_stream.iter_s
-        (fun msg -> t.put msg) of_user in
-    async (fun () -> reader_t () <?> write_t ());
+      try_lwt loop () with
+      | End_of_file
+      | Lwt_io.Channel_closed _ -> return_unit
+      | exn -> on_error exn
+      finally return (to_user None) in
+    let write_t () = Lwt_stream.iter_s t.put of_user in
+    async (fun () ->
+        try_lwt reader_t () <?> write_t ()
+        with exn -> fatal ~exn "stream_of_io"
+        finally
+          to_client None;
+          return_unit);
     of_client,to_client
 
   module Any = struct
@@ -513,14 +528,16 @@ module IO = struct
   let get t = Exceptionless.get t |> try_exn
   let put = Any.put
 
-  type buf = Lwt_bytes.t
 
-  let write_bytes = Connection.BytesIO.write
-  let read_bytes  = Connection.BytesIO.read
-  let write_string = Connection.StringIO.write
-  let read_string  = Connection.StringIO.read
 
 end
+
+
+type buf = Lwt_bytes.t
+let write_bytes = Connection.BytesIO.write
+let read_bytes  = Connection.BytesIO.read
+let write_string = Connection.StringIO.write
+let read_string  = Connection.StringIO.read
 
 type ('a,'b) io = ('a,'b) IO.t
 type ('a,'b) expect = ('a,'b) IO.Expect.t
