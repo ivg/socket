@@ -1,7 +1,7 @@
 OASISFormat: 0.3
-Name:        chat-client
+Name:        lwt-socket
 Version:     0.1.0
-Synopsis:    Simple one-to-one TCP chat client
+Synopsis:    A high-level library dealing with low level sockets
 Authors:     Ivan Gotovchits <ivg@ieee.org>
 License:     MIT
 Plugins:     META (0.3), StdFiles (0.3), DevFiles (0.3)

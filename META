@@ -1,7 +1,7 @@
 # OASIS_START
-# DO NOT EDIT (digest: 44d04528a54faa2b574c359e332b877e)
+# DO NOT EDIT (digest: d5f69227bf49bda8614b50ac15247e13)
 version = "0.1.0"
-description = "Simple one-to-one TCP chat client"
+description = "A high-level library dealing with low level sockets"
 requires = "lwt lwt.unix lwt.syntax"
 archive(byte) = "socket.cma"
 archive(byte, plugin) = "socket.cma"
